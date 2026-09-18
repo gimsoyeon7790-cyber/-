@@ -79,6 +79,11 @@
   .chip.me{border-color:var(--gold);}
   .chip.drawer{border-color:var(--teal);}
   .chip.offline{opacity:.5;}
+  .chip.spectator{opacity:.75;border-style:dashed;}
+  .chip .spectator-tag{color:var(--text-dim);font-size:11px;}
+  .chip-action{background:transparent;color:var(--text-dim);border:none;padding:0 2px;font-size:13px;font-weight:900;cursor:pointer;line-height:1;flex:0 0 auto;}
+  .chip-action:hover{color:var(--coral);}
+  .chip-action.spectator-toggle:hover{color:var(--gold);}
 
   .hint{font-size:12px;color:var(--text-dim);line-height:1.6;}
   .error{font-size:13px;color:var(--coral);min-height:16px;}
@@ -100,6 +105,7 @@
   .diff-easy{background:rgba(62,217,160,.18);color:var(--teal);}
   .diff-medium{background:rgba(255,201,74,.18);color:var(--gold);}
   .diff-hard{background:rgba(255,107,91,.18);color:var(--coral);}
+  .diff-free{background:rgba(162,89,255,.18);color:#c9a3ff;}
 
   .timebar-wrap{background:var(--panel-2);border-radius:8px;height:8px;overflow:hidden;margin-top:10px;}
   .timebar{height:100%;background:var(--gold);border-radius:8px;transition:width .4s linear;}
@@ -108,6 +114,10 @@
   .choice-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px;}
   .choice-btn{background:var(--paper);color:#241f38;border-radius:10px;padding:10px 14px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:96px;}
   .choice-btn small{font-weight:700;font-size:10px;}
+  .free-input-row{display:none;gap:8px;margin-top:10px;width:100%;}
+  .free-input-row.show{display:flex;}
+  .free-input-row input{flex:1;}
+  .free-input-row button{flex:0 0 auto;}
 
   .canvas-wrap{background:#fff;border-radius:12px;overflow:hidden;border:2px solid var(--border);line-height:0;}
   canvas{width:100%;height:auto;display:block;touch-action:none;cursor:crosshair;}
@@ -124,6 +134,7 @@
   .standings{display:flex;flex-wrap:wrap;gap:8px;}
   .standing{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:12px;display:flex;align-items:center;gap:6px;}
   .standing.me{border-color:var(--gold);}
+  .standing.spectator{opacity:.7;border-style:dashed;}
   .standing .pts{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;}
   .standing .rank{color:var(--text-dim);}
 
@@ -159,11 +170,17 @@
     <div class="card rules-card">
       <h2>게임 방법</h2>
       <ul class="rules-list">
-        <li>순서대로 한 명씩 <b>제시어를 골라</b> 그림을 그리고, 나머지는 채팅창에 <b>정답을 입력</b>해요.</li>
+        <li>순서대로 한 명씩 <b>제시어를 골라</b> 그림을 그리고, 나머지는 채팅창에 <b>정답을 입력</b>해요. 제시어는 랜덤 2개 중 고르거나, 직접 입력하는 <b>자유 주제</b>를 선택할 수 있어요.</li>
         <li>정답을 맞히면 채팅에 정답 대신 "🎉 정답!"만 표시돼요 (스포일러 방지). 빨리 맞힐수록, 어려운 단어일수록 점수가 높아요.</li>
         <li>그린 사람도 맞힌 사람 수만큼 점수를 받아요. 정해진 라운드가 끝나면 최종 순위가 나와요.</li>
       </ul>
-      <div class="hint">방장이 갑자기 나가거나 연결이 끊기면, 남은 참가자 중 한 명이 자동으로 새 방장이 되어 게임이 계속돼요.</div>
+      <h2>버튼 안내</h2>
+      <ul class="rules-list">
+        <li><b>👁</b> — 나를 관전으로 전환 (게임에 참여 못 하게 되면 스스로 전환하세요) / 다시 누르면 복귀</li>
+        <li><b>👑</b> — 방장이 다른 참가자에게 방장 권한 넘기기</li>
+        <li><b>✕</b> — 방장이 참가자 강퇴하기</li>
+      </ul>
+      <div class="hint">방장이 갑자기 나가거나 연결이 끊기면, 남은 참가자 중 한 명이 자동으로 새 방장이 되어 게임이 계속돼요. 게임 중 활동 중인 참가자가 1명만 남으면(관전/퇴장/접속끊김 등) 그 사람이 자동으로 우승 처리돼요.</div>
     </div>
   </div>
 </div>
@@ -186,6 +203,22 @@
   var SIZES = [4,10,20];
 
   var app = document.getElementById('app');
+  app.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-action]');
+    if(!btn || !game) return;
+    var action = btn.getAttribute('data-action');
+    var target = btn.getAttribute('data-target');
+    if(action==='spectator'){
+      var p = game.players.find(function(pp){return pp.id===target;});
+      act({t:'setSpectator', target:target, spectator: !(p && p.spectator)});
+    } else if(action==='kick'){
+      var kp = game.players.find(function(pp){return pp.id===target;});
+      if(confirm((kp?kp.name:'참가자')+'님을 강퇴할까요?')) act({t:'kick', target:target});
+    } else if(action==='transferHost'){
+      var tp = game.players.find(function(pp){return pp.id===target;});
+      if(confirm((tp?tp.name:'참가자')+'님에게 방장을 넘길까요?')) hostTransferTo(target);
+    }
+  });
 
   var myName = "";
   var myId = null;
@@ -217,12 +250,10 @@
     for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
     return a;
   }
-  function pick(arr, usedSet){
-    var pool = arr.filter(function(w){ return !usedSet.has(w); });
-    if(!pool.length) pool = arr;
-    return pool[Math.floor(Math.random()*pool.length)];
-  }
-  function diffLabel(d){ return d==='easy'?'쉬움':(d==='hard'?'어려움':'보통'); }
+  var ALL_WORDS = WORDS_EASY.map(function(w){return {word:w,diff:'easy'};})
+    .concat(WORDS_MEDIUM.map(function(w){return {word:w,diff:'medium'};}))
+    .concat(WORDS_HARD.map(function(w){return {word:w,diff:'hard'};}));
+  function diffLabel(d){ return d==='easy'?'쉬움':(d==='hard'?'어려움':(d==='free'?'자유':'보통')); }
   function diffBase(d){ return d==='easy'?60:(d==='hard'?130:90); }
 
   function freshGame(){
@@ -233,7 +264,8 @@
       subPhase:null, wordChoices:null, currentWord:null, difficulty:null,
       chooseStartAt:null, turnStartAt:null, revealAt:null,
       guessedIds:[], drawerScoreGain:0, usedWords:[],
-      strokes:[], chat:[], winners:null, transferTo:null
+      strokes:[], chat:[], winners:null, transferTo:null,
+      endReason:null, forfeitWinnerId:null
     };
   }
 
@@ -242,7 +274,8 @@
     return game.turnOrder[game.turnIndex];
   }
   function amIDrawer(){ return !!game && currentDrawerId()===myId; }
-  function activePlayers(){ return game.players.filter(function(p){ return p.connected!==false; }); }
+  function amISpectator(){ var me=game && game.players.find(function(p){return p.id===myId;}); return !!(me && me.spectator); }
+  function activePlayers(){ return game.players.filter(function(p){ return p.connected!==false && !p.spectator; }); }
 
   // ---------- HOST-SIDE STATE MUTATIONS ----------
   function applyJoin(id, name){
@@ -272,11 +305,10 @@
   }
   function startTurnChoosing(){
     var used = new Set(game.usedWords||[]);
-    game.wordChoices = [
-      {word:pick(WORDS_EASY,used), diff:'easy'},
-      {word:pick(WORDS_MEDIUM,used), diff:'medium'},
-      {word:pick(WORDS_HARD,used), diff:'hard'}
-    ];
+    var avail = ALL_WORDS.filter(function(w){ return !used.has(w.word); });
+    if(avail.length<2) avail = ALL_WORDS;
+    var picks = shuffle(avail).slice(0,2);
+    game.wordChoices = picks.concat([{free:true}]);
     game.subPhase='choosing'; game.currentWord=null; game.difficulty=null;
     game.chooseStartAt=Date.now(); game.turnStartAt=null; game.revealAt=null;
     game.guessedIds=[]; game.drawerScoreGain=0; game.strokes=[];
@@ -291,18 +323,26 @@
     game.phase = 'playing';
     startTurnChoosing();
   }
-  function applyChooseWord(id, word){
+  function applyChooseWord(id, payload){
     if(game.phase!=='playing' || game.subPhase!=='choosing') return;
     if(id !== currentDrawerId()) return;
-    var found = (game.wordChoices||[]).find(function(c){return c.word===word;});
-    if(!found) return;
-    game.currentWord = found.word; game.difficulty = found.diff;
-    game.usedWords = (game.usedWords||[]).concat([found.word]);
+    var word, diff;
+    if(payload.custom){
+      var text = String(payload.customText||'').trim().slice(0,12);
+      if(!text) return;
+      word = text; diff = 'free';
+    } else {
+      var found = (game.wordChoices||[]).find(function(c){ return !c.free && c.word===payload.word; });
+      if(!found) return;
+      word = found.word; diff = found.diff;
+    }
+    game.currentWord = word; game.difficulty = diff;
+    game.usedWords = (game.usedWords||[]).concat([word]);
     game.wordChoices = null;
     game.subPhase = 'drawing'; game.turnStartAt = Date.now();
   }
   function autoPickWord(){
-    var found = (game.wordChoices||[])[1] || (game.wordChoices||[])[0];
+    var found = (game.wordChoices||[]).find(function(c){ return !c.free; });
     if(!found) return;
     game.currentWord = found.word; game.difficulty = found.diff;
     game.usedWords = (game.usedWords||[]).concat([found.word]);
@@ -314,12 +354,11 @@
     return Math.round(diffBase(diff)*frac) + (game.guessedIds.length===0?20:0);
   }
   function applyGuess(id, text){
-    if(game.phase!=='playing') return;
     var player = game.players.find(function(p){return p.id===id;});
-    if(!player) return;
+    if(!player || player.spectator) return;
     text = String(text||'').trim().slice(0,30);
     if(!text) return;
-    if(game.subPhase==='drawing' && id!==currentDrawerId() && game.guessedIds.indexOf(id)===-1 && normalize(text)===normalize(game.currentWord)){
+    if(game.phase==='playing' && game.subPhase==='drawing' && id!==currentDrawerId() && game.guessedIds.indexOf(id)===-1 && normalize(text)===normalize(game.currentWord)){
       var totalMs = game.settings.turnSeconds*1000;
       var remainingMs = Math.max(0, totalMs - (Date.now()-game.turnStartAt));
       var pts = scoreForGuess(remainingMs, totalMs, game.difficulty);
@@ -349,15 +388,71 @@
     if(id !== currentDrawerId()) return;
     game.strokes = [];
   }
+  function adjustTurnIndexAfterRemoval(removedIdx){
+    if(!game.turnOrder || !game.turnOrder.length){ game.turnIndex=0; return; }
+    if(removedIdx < game.turnIndex) game.turnIndex--;
+    if(game.turnIndex>=game.turnOrder.length) game.turnIndex = 0;
+    if(game.turnIndex<0) game.turnIndex = 0;
+  }
+  function checkForfeit(){
+    if(!game || game.phase!=='playing') return;
+    var active = game.players.filter(function(p){ return p.connected!==false && !p.spectator; });
+    if(active.length<=1){
+      game.phase='ended';
+      game.endReason = active.length===1 ? 'forfeit' : 'empty';
+      game.forfeitWinnerId = active.length===1 ? active[0].id : null;
+      game.winners = game.players.slice().sort(function(a,b){return b.score-a.score;});
+      game.subPhase=null;
+    }
+  }
+  function applyKick(requesterId, targetId){
+    if(requesterId !== myId) return; // host only
+    if(targetId === myId) return; // host can't kick self — use host-transfer instead
+    var idx = game.players.findIndex(function(p){return p.id===targetId;});
+    if(idx===-1) return;
+    var wasDrawer = game.phase==='playing' && currentDrawerId()===targetId;
+    game.players.splice(idx,1);
+    if(game.turnOrder){
+      var tIdx = game.turnOrder.indexOf(targetId);
+      if(tIdx!==-1){ game.turnOrder.splice(tIdx,1); adjustTurnIndexAfterRemoval(tIdx); }
+    }
+    game.guessedIds = (game.guessedIds||[]).filter(function(id){return id!==targetId;});
+    if(connections){
+      var conn = connections.get(targetId);
+      if(conn){
+        try{ conn.send({t:'kicked'}); }catch(e){}
+        connections.delete(targetId);
+        setTimeout(function(){ try{ conn.close(); }catch(e){} }, 400);
+      }
+    }
+    checkForfeit();
+    if(game.phase==='playing' && wasDrawer) nextTurn();
+  }
+  function applySetSpectator(requesterId, targetId, spectator){
+    if(requesterId !== targetId) return; // self-service only
+    var p = game.players.find(function(p){return p.id===targetId;});
+    if(!p) return;
+    p.spectator = !!spectator;
+    var wasDrawer = game.phase==='playing' && currentDrawerId()===targetId;
+    if(p.spectator && game.turnOrder){
+      var tIdx = game.turnOrder.indexOf(targetId);
+      if(tIdx!==-1){ game.turnOrder.splice(tIdx,1); adjustTurnIndexAfterRemoval(tIdx); }
+      game.guessedIds = (game.guessedIds||[]).filter(function(id){return id!==targetId;});
+    }
+    checkForfeit();
+    if(game.phase==='playing' && wasDrawer && p.spectator) nextTurn();
+  }
   function applyPlayAgain(requesterId){
     if(requesterId !== myId) return;
     if(game.phase!=='ended') return;
     game.phase='lobby'; game.turnOrder=null; game.subPhase=null; game.wordChoices=null;
     game.currentWord=null; game.difficulty=null; game.guessedIds=[]; game.strokes=[];
-    game.chat=[]; game.winners=null; game.usedWords=[];
-    game.players.forEach(function(p){ p.score=0; });
+    game.chat=[]; game.winners=null; game.usedWords=[]; game.endReason=null; game.forfeitWinnerId=null;
+    game.players.forEach(function(p){ p.score=0; p.spectator=false; });
   }
   function nextTurn(){
+    checkForfeit();
+    if(game.phase!=='playing') return;
     var order = game.turnOrder;
     for(var tries=0; tries<order.length*(game.settings.rounds+1); tries++){
       game.turnIndex++;
@@ -401,11 +496,13 @@
     if(msg.t==='join') applyJoin(senderId, msg.name);
     else if(msg.t==='setSettings') applySetSettings(senderId, msg.turnSeconds, msg.rounds);
     else if(msg.t==='startGame') applyStartGame(senderId);
-    else if(msg.t==='chooseWord') applyChooseWord(senderId, msg.word);
+    else if(msg.t==='chooseWord') applyChooseWord(senderId, msg);
     else if(msg.t==='guess') applyGuess(senderId, msg.text);
     else if(msg.t==='chat') applyGuess(senderId, msg.text);
     else if(msg.t==='clearCanvas') applyClearCanvas(senderId);
     else if(msg.t==='playAgain') applyPlayAgain(senderId);
+    else if(msg.t==='setSpectator') applySetSpectator(senderId, msg.target, msg.spectator);
+    else if(msg.t==='kick') applyKick(senderId, msg.target);
     broadcastState();
   }
   function handleIncoming(senderId, msg){
@@ -476,6 +573,7 @@
         connections.delete(conn.peer);
         var pl = game.players.find(function(pp){return pp.id===conn.peer;});
         if(pl) pl.connected = false;
+        checkForfeit();
         broadcastState();
       });
     });
@@ -507,6 +605,10 @@
         if(msg.t==='state'){
           game = msg.game;
           render();
+          if(!promoted && game && game.transferTo===myId && !isHost){
+            promoted = true;
+            becomeNewHostViaTransfer();
+          }
         }
         else if(msg.t==='strokeSeg'){ drawSegRaw(msg.seg); }
         else if(msg.t==='clearCanvasNow'){ clearCanvasLocal(); }
@@ -521,6 +623,13 @@
       });
       conn.on('close', function(){
         if(wasKicked || voluntaryLeaving || promoted) return;
+        if(game && game.transferTo && game.transferTo!==myId){
+          pendingError = '방장이 바뀌는 중이에요. 다시 연결하는 중...';
+          connStatus = 'connecting';
+          render();
+          setTimeout(function(){ joinRoom(myName, roomCode, {isRejoin:true}); }, 1200);
+          return;
+        }
         if(game && game.hostId){
           var deadHostId = game.hostId;
           var deadHostPlayer = game.players.find(function(pp){return pp.id===deadHostId;});
@@ -583,9 +692,30 @@
     try{ if(oldConn) oldConn.close(); }catch(e){}
     try{ if(oldPeer) oldPeer.destroy(); }catch(e){}
     hostConn = null; peer = null;
-    setTimeout(function(){ tryClaimHostFailover(previousId, deadHostId, deadHostName, 0); }, 400);
+    var chatMsg = '👑 방장이 '+(deadHostName||'이전 방장')+'님에서 '+myName+'님으로 바뀌었어요 (연결 끊김)';
+    setTimeout(function(){ claimHostSlot(previousId, deadHostId, chatMsg, true, 0); }, 400);
   }
-  function tryClaimHostFailover(previousId, deadHostId, deadHostName, attempt){
+  function becomeNewHostViaTransfer(){
+    var oldPeer = peer;
+    var oldConn = hostConn;
+    var previousId = myId;
+    var outgoingId = game.hostId;
+    pendingError = '방장이 되는 중이에요...';
+    connStatus = 'connecting';
+    render();
+    try{ if(oldConn) oldConn.close(); }catch(e){}
+    try{ if(oldPeer) oldPeer.destroy(); }catch(e){}
+    hostConn = null; peer = null;
+    var chatMsg = '👑 방장 권한이 '+myName+'님에게 넘어갔어요';
+    setTimeout(function(){ claimHostSlot(previousId, outgoingId, chatMsg, false, 0); }, 400);
+  }
+  // isFailover=true: the outgoing host is presumed gone for good (crashed/closed tab) — drop them
+  // from the roster and skip their turn. isFailover=false: a planned handoff — the outgoing host
+  // is about to reconnect as a regular client within ~1s, so keep their player/turnOrder slot intact
+  // (just mark them briefly disconnected) instead of deleting it, and don't run the forfeit check —
+  // deleting them here would make checkForfeit see only 1 "active" player during that brief gap and
+  // wrongly end the game by forfeit before the reconnect even has a chance to land.
+  function claimHostSlot(previousId, outgoingId, chatMsg, isFailover, attempt){
     var code = roomCode;
     var p = new Peer(ID_PREFIX+code, {debug:0});
     p.on('open', function(id){
@@ -594,35 +724,61 @@
       connections = new Map();
       if(game.turnOrder){ game.turnOrder = game.turnOrder.map(function(pid){ return pid===previousId ? id : pid; }); }
       game.guessedIds = (game.guessedIds||[]).map(function(pid){ return pid===previousId ? id : pid; });
-      game.players = game.players.filter(function(pp){ return pp.id!==previousId && pp.id!==deadHostId; });
+      game.players = game.players.filter(function(pp){ return pp.id!==previousId; });
+      if(outgoingId && outgoingId!==previousId){
+        if(isFailover){
+          game.players = game.players.filter(function(pp){ return pp.id!==outgoingId; });
+          if(game.turnOrder){
+            var tIdx = game.turnOrder.indexOf(outgoingId);
+            if(tIdx!==-1){ game.turnOrder.splice(tIdx,1); adjustTurnIndexAfterRemoval(tIdx); }
+          }
+        } else {
+          var outgoing = game.players.find(function(pp){ return pp.id===outgoingId; });
+          if(outgoing) outgoing.connected = false;
+        }
+      }
       game.players.push({
         id:id, name:myName,
         score: mySnapshot ? mySnapshot.score : 0,
+        spectator: mySnapshot ? !!mySnapshot.spectator : false,
         connected:true
       });
       game.hostId = id;
-      if(game.turnOrder){
-        var tIdx = game.turnOrder.indexOf(deadHostId);
-        if(tIdx!==-1){
-          game.turnOrder.splice(tIdx,1);
-          if(game.turnOrder.length===0){ game.phase='ended'; game.winners=game.players.slice().sort(function(a,b){return b.score-a.score;}); }
-          else if(game.turnIndex!=null){
-            if(tIdx < game.turnIndex) game.turnIndex--;
-            else game.turnIndex = game.turnIndex % game.turnOrder.length;
-          }
-        }
-      }
-      game.chat = (game.chat||[]).concat([{ system:true, text: '👑 방장이 '+(deadHostName||'이전 방장')+'님에서 '+myName+'님으로 바뀌었어요 (연결 끊김)' }]).slice(-50);
+      game.transferTo = null;
+      if(chatMsg) game.chat = (game.chat||[]).concat([{ system:true, text: chatMsg }]).slice(-50);
       wireHostPeer(p);
       connStatus = 'live'; startHostTicker();
+      if(isFailover) checkForfeit();
       broadcastState();
     });
     p.on('error', function(err){
-      if(err && err.type==='unavailable-id' && attempt<8){ try{ p.destroy(); }catch(e){} setTimeout(function(){ tryClaimHostFailover(previousId, deadHostId, deadHostName, attempt+1); }, 500); return; }
+      if(err && err.type==='unavailable-id' && attempt<8){ try{ p.destroy(); }catch(e){} setTimeout(function(){ claimHostSlot(previousId, outgoingId, chatMsg, isFailover, attempt+1); }, 500); return; }
       connStatus='down';
       pendingError='방장 승격에 실패했어요. 방이 끊어졌을 수 있어요. 새로 방을 만들어주세요.';
       game=null; render();
     });
+  }
+  function hostTransferTo(targetId){
+    if(!isHost || !game) return;
+    var target = game.players.find(function(p){return p.id===targetId;});
+    if(!target || targetId===myId || target.connected===false) return;
+    game.transferTo = targetId;
+    broadcastState();
+    setTimeout(relinquishHostRole, 400);
+  }
+  function relinquishHostRole(){
+    isHost = false;
+    var oldPeer = peer;
+    var code = roomCode;
+    var name = myName;
+    stopHostTicker();
+    connections = null;
+    peer = null;
+    pendingError = '방장 권한을 넘기는 중이에요...';
+    connStatus = 'connecting';
+    render();
+    try{ if(oldPeer) oldPeer.destroy(); }catch(e){}
+    setTimeout(function(){ joinRoom(name, code, {isRejoin:true}); }, 700);
   }
 
   function leaveRoom(){
@@ -693,8 +849,13 @@
 
   // ---------- RENDER ----------
   function titleBarHTML(){
-    var dot = connStatus==='live' ? '<span class="status live">● 연결됨</span>' : (connStatus==='down' ? '<span class="status down">● 연결 끊김</span>' : '<span class="status">연결 중...</span>');
-    return '<div class="marquee"><div class="bulbs"></div><div class="inner" style="padding:14px 16px;"><h1 class="display" style="font-size:18px;">YES, 그림GO!</h1>'+dot+'</div><div class="bulbs"></div></div>';
+    return '<div class="marquee"><div class="bulbs"></div><div class="inner" style="padding:14px 16px;"><h1 class="display" style="font-size:18px;">YES, 그림GO!</h1><span id="connStatusDot"></span></div><div class="bulbs"></div></div>';
+  }
+  function updateConnStatusDot(){
+    var el = document.getElementById('connStatusDot');
+    if(!el) return;
+    el.className = 'status'+(connStatus==='live'?' live':(connStatus==='down'?' down':''));
+    el.textContent = connStatus==='live' ? '● 연결됨' : (connStatus==='down' ? '● 연결 끊김' : '연결 중...');
   }
 
   function render(){
@@ -717,6 +878,7 @@
     else if(phase==='playing') updatePlayingDynamic();
     else if(phase==='ended') updateEndedDynamic();
     updateChatUI();
+    updateConnStatusDot();
   }
 
   function wireChatSidebarOnce(){
@@ -725,7 +887,7 @@
     var send = function(){
       var text = input.value.trim();
       if(!text || !game) return;
-      var isGuessable = game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && game.guessedIds.indexOf(myId)===-1;
+      var isGuessable = game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && !amISpectator() && game.guessedIds.indexOf(myId)===-1;
       act({t: isGuessable ? 'guess' : 'chat', text:text});
       input.value='';
     };
@@ -742,7 +904,7 @@
     sidebar.hidden = false;
     var head = document.getElementById('chatHead');
     var input = document.getElementById('chatInput');
-    if(game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && game.guessedIds.indexOf(myId)===-1){
+    if(game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && !amISpectator() && game.guessedIds.indexOf(myId)===-1){
       head.textContent = '💬 정답을 입력해보세요!';
       input.placeholder = '정답 또는 채팅 입력';
     } else if(game.phase==='playing' && game.subPhase==='drawing' && amIDrawer()){
@@ -849,9 +1011,22 @@
     }
     wireChatSidebarOnce();
   }
+  function controlsHTML(p){
+    var html='';
+    if(p.id===myId){
+      html += '<button type="button" class="chip-action spectator-toggle" data-action="spectator" data-target="'+p.id+'" title="'+(p.spectator?'참가자로 복귀':'관전으로 전환')+'">'+(p.spectator?'▶':'👁')+'</button>';
+    } else if(isHost){
+      if(p.connected!==false){
+        html += '<button type="button" class="chip-action" data-action="transferHost" data-target="'+p.id+'" title="방장 넘기기">👑</button>';
+      }
+      html += '<button type="button" class="chip-action" data-action="kick" data-target="'+p.id+'" title="강퇴">✕</button>';
+    }
+    return html;
+  }
   function playerChipHTML(p){
-    var cls = 'chip'+(p.id===myId?' me':'')+(p.connected===false?' offline':'');
-    return '<div class="'+cls+'"><span class="dot">'+esc((p.name||'?').charAt(0))+'</span>'+esc(p.name)+(p.id===myId?' <span class="wait">(나)</span>':'')+(p.connected===false?' <span class="wait">(끊김)</span>':'')+'</div>';
+    var cls = 'chip'+(p.id===myId?' me':'')+(p.connected===false?' offline':'')+(p.spectator?' spectator':'');
+    var crown = (game.hostId && p.id===game.hostId) ? '👑 ' : '';
+    return '<div class="'+cls+'"><span class="dot">'+esc((p.name||'?').charAt(0))+'</span>'+crown+esc(p.name)+(p.id===myId?' <span class="wait">(나)</span>':'')+(p.connected===false?' <span class="wait">(끊김)</span>':'')+(p.spectator?' <span class="spectator-tag">(관전)</span>':'')+controlsHTML(p)+'</div>';
   }
   function updateLobbyDynamic(){
     var chips = document.getElementById('playersChips');
@@ -901,11 +1076,26 @@
     if(iAmDrawer && game.subPhase==='choosing'){
       var row = document.getElementById('choiceRow');
       row.innerHTML = (game.wordChoices||[]).map(function(c){
+        if(c.free) return '<button type="button" class="choice-btn" id="freeBtn">✏️ 자유 주제<small class="diff diff-free">직접 입력</small></button>';
         return '<button type="button" class="choice-btn" data-word="'+esc(c.word)+'">'+esc(c.word)+'<small class="diff diff-'+c.diff+'">'+diffLabel(c.diff)+'</small></button>';
-      }).join('');
-      row.querySelectorAll('.choice-btn').forEach(function(btn){
+      }).join('') + '<div class="free-input-row" id="freeInputRow"><input type="text" id="freeWordInput" maxlength="12" placeholder="제시어를 직접 입력하세요"><button type="button" class="primary small" id="freeSubmitBtn">확정</button></div>';
+      row.querySelectorAll('.choice-btn[data-word]').forEach(function(btn){
         btn.addEventListener('click', function(){ act({t:'chooseWord', word: btn.getAttribute('data-word')}); });
       });
+      var freeBtn = document.getElementById('freeBtn');
+      if(freeBtn){
+        freeBtn.addEventListener('click', function(){
+          document.getElementById('freeInputRow').classList.add('show');
+          document.getElementById('freeWordInput').focus();
+        });
+      }
+      var submitFree = function(){
+        var val = document.getElementById('freeWordInput').value.trim();
+        if(!val) return;
+        act({t:'chooseWord', custom:true, customText: val});
+      };
+      document.getElementById('freeSubmitBtn').addEventListener('click', submitFree);
+      document.getElementById('freeWordInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); submitFree(); } });
     }
     if(iAmDrawer && game.subPhase==='drawing'){
       var sw = document.getElementById('swatches');
@@ -949,7 +1139,8 @@
       var sorted = game.players.slice().sort(function(a,b){return b.score-a.score;});
       standings.innerHTML = sorted.map(function(p,i){
         var isDrawer = p.id===currentDrawerId();
-        return '<div class="standing'+(p.id===myId?' me':'')+'"><span class="rank">'+(i+1)+'.</span>'+(isDrawer?'✏️ ':'')+esc(p.name)+(p.connected===false?' (끊김)':'')+'<span class="pts">'+p.score+'점</span></div>';
+        var crown = (game.hostId && p.id===game.hostId) ? '👑 ' : '';
+        return '<div class="standing'+(p.id===myId?' me':'')+(p.spectator?' spectator':'')+'"><span class="rank">'+(i+1)+'.</span>'+crown+(isDrawer?'✏️ ':'')+esc(p.name)+(p.connected===false?' (끊김)':'')+(p.spectator?' (관전)':'')+'<span class="pts">'+p.score+'점</span>'+controlsHTML(p)+'</div>';
       }).join('');
     }
   }
@@ -957,9 +1148,18 @@
   // ---------- ENDED ----------
   function buildEndedShell(){
     var winners = game.winners || [];
+    var banner;
+    if(game.endReason==='forfeit'){
+      var fw = game.players.find(function(p){return p.id===game.forfeitWinnerId;});
+      banner = '<div class="big">🏆 '+esc(fw?fw.name:'?')+'님 승리!</div><div class="sub" style="margin-top:2px;">다른 참가자들이 나가서 자동으로 승리했어요</div>';
+    } else if(game.endReason==='empty'){
+      banner = '<div class="big">게임 종료</div><div class="sub" style="margin-top:2px;">모든 참가자가 나가서 게임이 종료됐어요</div>';
+    } else {
+      banner = winners[0] ? '<div class="big">🏆 '+esc(winners[0].name)+'님 우승!</div>' : '<div class="big">게임 종료</div>';
+    }
     app.innerHTML = titleBarHTML() +
       '<div class="card winner">' +
-        (winners[0] ? '<div class="big">🏆 '+esc(winners[0].name)+'님 우승!</div>' : '<div class="big">게임 종료</div>') +
+        banner +
         '<div class="sub" id="finalList"></div>' +
       '</div>' +
       (isHost ? '<div class="card"><button class="primary" id="againBtn">다시 하기</button></div>' : '<div class="card"><div class="hint">방장이 다시 하기를 누르면 새 게임이 시작돼요</div></div>');
