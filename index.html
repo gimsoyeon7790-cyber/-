@@ -251,9 +251,6 @@
     for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
     return a;
   }
-  var ALL_WORDS = WORDS_EASY.map(function(w){return {word:w,diff:'easy'};})
-    .concat(WORDS_MEDIUM.map(function(w){return {word:w,diff:'medium'};}))
-    .concat(WORDS_HARD.map(function(w){return {word:w,diff:'hard'};}));
   function diffLabel(d){ return d==='easy'?'쉬움':(d==='hard'?'어려움':(d==='free'?'자유':'보통')); }
   function diffBase(d){ return d==='easy'?60:(d==='hard'?130:90); }
 
@@ -304,12 +301,19 @@
     game.settings.turnSeconds = turnSeconds;
     game.settings.rounds = rounds;
   }
+  function pickWordFromTier(pool, used){
+    var avail = pool.filter(function(w){ return !used.has(w); });
+    if(!avail.length) avail = pool;
+    return avail[Math.floor(Math.random()*avail.length)];
+  }
   function startTurnChoosing(){
     var used = new Set(game.usedWords||[]);
-    var avail = ALL_WORDS.filter(function(w){ return !used.has(w.word); });
-    if(avail.length<3) avail = ALL_WORDS;
-    var picks = shuffle(avail).slice(0,3);
-    game.wordChoices = picks.concat([{free:true}]);
+    game.wordChoices = [
+      {word: pickWordFromTier(WORDS_EASY, used), diff:'easy'},
+      {word: pickWordFromTier(WORDS_MEDIUM, used), diff:'medium'},
+      {word: pickWordFromTier(WORDS_HARD, used), diff:'hard'},
+      {free:true}
+    ];
     game.subPhase='choosing'; game.currentWord=null; game.difficulty=null;
     game.chooseStartAt=Date.now(); game.turnStartAt=null; game.revealAt=null;
     game.guessedIds=[]; game.drawerScoreGain=0; game.strokes=[];
@@ -359,7 +363,9 @@
     if(!player || player.spectator) return;
     text = String(text||'').trim().slice(0,30);
     if(!text) return;
-    if(game.phase==='playing' && game.subPhase==='drawing' && id!==currentDrawerId() && game.guessedIds.indexOf(id)===-1 && normalize(text)===normalize(game.currentWord)){
+    var isDrawingNow = game.phase==='playing' && game.subPhase==='drawing';
+    var knowsAnswer = isDrawingNow && (id===currentDrawerId() || game.guessedIds.indexOf(id)!==-1);
+    if(isDrawingNow && !knowsAnswer && normalize(text)===normalize(game.currentWord)){
       var totalMs = game.settings.turnSeconds*1000;
       var remainingMs = Math.max(0, totalMs - (Date.now()-game.turnStartAt));
       var pts = scoreForGuess(remainingMs, totalMs, game.difficulty);
@@ -371,11 +377,10 @@
       if(nonDrawerActive.every(function(p){ return game.guessedIds.indexOf(p.id)!==-1; })){
         endDrawingEarly();
       }
-    } else if(game.phase==='playing' && game.subPhase==='drawing' && game.currentWord && normalize(text)===normalize(game.currentWord)){
+    } else if(knowsAnswer && game.currentWord && normalize(text).indexOf(normalize(game.currentWord))!==-1){
       // Someone who already knows the word (the drawer, or a player who already guessed
-      // correctly) typed it verbatim — drop it instead of posting so it can't spoil the
-      // round for players who are still guessing. Only an exact full-word match is blocked;
-      // partial words/hints still go through as normal chat.
+      // correctly) wrote it — even inside a longer sentence, e.g. "선물상자야!" — drop it
+      // instead of posting so it can't spoil the round for players still guessing.
       return;
     } else {
       game.chat = (game.chat||[]).concat([{ name:player.name, text:text }]).slice(-50);
@@ -894,8 +899,10 @@
     var send = function(){
       var text = input.value.trim();
       if(!text || !game) return;
-      var isGuessable = game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && !amISpectator() && game.guessedIds.indexOf(myId)===-1;
-      if(!isGuessable && game.phase==='playing' && game.subPhase==='drawing' && game.currentWord && normalize(text)===normalize(game.currentWord)){
+      var isDrawingNow = game.phase==='playing' && game.subPhase==='drawing';
+      var knowsAnswer = isDrawingNow && (amIDrawer() || game.guessedIds.indexOf(myId)!==-1);
+      var isGuessable = isDrawingNow && !knowsAnswer && !amISpectator();
+      if(knowsAnswer && game.currentWord && normalize(text).indexOf(normalize(game.currentWord))!==-1){
         input.classList.add('blocked');
         setTimeout(function(){ input.classList.remove('blocked'); }, 700);
         return;
