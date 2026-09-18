@@ -20,8 +20,8 @@
   }
   .display{font-family:'Jua', 'Gothic A1', sans-serif;}
 
-  .layout{width:100%;max-width:860px;display:flex;gap:16px;align-items:flex-start;justify-content:center;}
-  .app{flex:1 1 480px;max-width:500px;display:flex;flex-direction:column;gap:14px;}
+  .layout{width:100%;max-width:1040px;display:flex;gap:16px;align-items:flex-start;justify-content:center;}
+  .app{flex:1 1 640px;max-width:680px;display:flex;flex-direction:column;gap:14px;}
   .sidebar-column{flex:1 1 280px;max-width:320px;min-width:240px;display:flex;flex-direction:column;gap:16px;position:sticky;top:20px;}
   .chat-sidebar{
     max-height:min(46vh,340px);
@@ -35,10 +35,10 @@
   .rules-card h2:first-child{margin-top:0;}
   .rules-list{margin:0 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-dim);line-height:1.5;}
   .rules-list b{color:var(--text);}
-  @media (max-width:780px){
+  @media (max-width:1020px){
     .layout{flex-direction:column;align-items:stretch;}
-    .app{max-width:500px;margin:0 auto;width:100%;}
-    .sidebar-column{position:static;max-width:500px;width:100%;margin:0 auto;}
+    .app{max-width:680px;margin:0 auto;width:100%;}
+    .sidebar-column{position:static;max-width:680px;width:100%;margin:0 auto;}
     .chat-sidebar{max-height:280px;}
   }
 
@@ -156,6 +156,7 @@
   .chat-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex:0 0 auto;}
   .chat-input-row input{flex:1;}
   .chat-input-row button{flex:0 0 auto;}
+  .chat-input-row input.blocked{outline:2px solid var(--coral);}
 </style>
 </head>
 <body>
@@ -195,7 +196,7 @@
 
   var CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   var ID_PREFIX = "cmgo-";
-  var CW = 480, CH = 340;
+  var CW = 640, CH = 440;
   var CHOOSE_SECONDS = 12, REVEAL_SECONDS = 6;
   var TURN_OPTIONS = [45,60,75,90,120];
   var ROUND_OPTIONS = [1,2,3,4];
@@ -370,6 +371,12 @@
       if(nonDrawerActive.every(function(p){ return game.guessedIds.indexOf(p.id)!==-1; })){
         endDrawingEarly();
       }
+    } else if(game.phase==='playing' && game.subPhase==='drawing' && game.currentWord && normalize(text)===normalize(game.currentWord)){
+      // Someone who already knows the word (the drawer, or a player who already guessed
+      // correctly) typed it verbatim — drop it instead of posting so it can't spoil the
+      // round for players who are still guessing. Only an exact full-word match is blocked;
+      // partial words/hints still go through as normal chat.
+      return;
     } else {
       game.chat = (game.chat||[]).concat([{ name:player.name, text:text }]).slice(-50);
     }
@@ -888,6 +895,11 @@
       var text = input.value.trim();
       if(!text || !game) return;
       var isGuessable = game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && !amISpectator() && game.guessedIds.indexOf(myId)===-1;
+      if(!isGuessable && game.phase==='playing' && game.subPhase==='drawing' && game.currentWord && normalize(text)===normalize(game.currentWord)){
+        input.classList.add('blocked');
+        setTimeout(function(){ input.classList.remove('blocked'); }, 700);
+        return;
+      }
       act({t: isGuessable ? 'guess' : 'chat', text:text});
       input.value='';
     };
