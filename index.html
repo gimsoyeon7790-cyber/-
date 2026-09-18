@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YES, 그림GO!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;700;800;900&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root{
+    --ink:#11162b; --panel:#1a2049; --panel-2:#232a5c; --paper:#ece6f5;
+    --gold:#ffc94a; --coral:#ff6b5b; --teal:#3ed9a0;
+    --text:#eef0fb; --text-dim:#8891ba; --border:#333c74;
+  }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--ink); color:var(--text); font-family:'Gothic A1', ui-sans-serif, system-ui, sans-serif;
+    min-height:100vh; margin:0; display:flex; justify-content:center; padding:28px 14px 60px;
+  }
+  .display{font-family:'Jua', 'Gothic A1', sans-serif;}
+
+  .layout{width:100%;max-width:860px;display:flex;gap:16px;align-items:flex-start;justify-content:center;}
+  .app{flex:1 1 480px;max-width:500px;display:flex;flex-direction:column;gap:14px;}
+  .sidebar-column{flex:1 1 280px;max-width:320px;min-width:240px;display:flex;flex-direction:column;gap:16px;position:sticky;top:20px;}
+  .chat-sidebar{
+    max-height:min(46vh,340px);
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  .chat-sidebar[hidden]{display:none;}
+  .chat-sidebar-head{font-family:'Jua',sans-serif;font-size:15px;padding:14px 16px;border-bottom:1px solid var(--border);flex:0 0 auto;}
+  .rules-card{padding:16px 18px;gap:6px;}
+  .rules-card h2{font-size:14px;margin-top:8px;}
+  .rules-card h2:first-child{margin-top:0;}
+  .rules-list{margin:0 0 4px;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text-dim);line-height:1.5;}
+  .rules-list b{color:var(--text);}
+  @media (max-width:780px){
+    .layout{flex-direction:column;align-items:stretch;}
+    .app{max-width:500px;margin:0 auto;width:100%;}
+    .sidebar-column{position:static;max-width:500px;width:100%;margin:0 auto;}
+    .chat-sidebar{max-height:280px;}
+  }
+
+  .bulbs{height:10px;background-image:radial-gradient(circle, var(--gold) 2.6px, transparent 3px);background-size:18px 100%;background-position:center;opacity:.9;}
+  @media (prefers-reduced-motion: no-preference){ .bulbs.blink{animation:bulbs 1.6s steps(1) infinite;} }
+  @keyframes bulbs{ 50%{background-image:radial-gradient(circle, var(--coral) 2.6px, transparent 3px);} }
+
+  .marquee{background:var(--panel);border:2px solid var(--border);border-radius:14px;padding:0 0 4px;overflow:hidden;}
+  .marquee .inner{padding:22px 20px 18px;text-align:center;}
+  .marquee h1{margin:0 0 4px;font-size:clamp(26px,7vw,38px);color:var(--gold);letter-spacing:.02em;}
+  .marquee p{margin:0;color:var(--text-dim);font-size:13px;}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;}
+  h2{font-family:'Jua',sans-serif;font-size:18px;margin:0;color:var(--text);font-weight:400;}
+  label{font-size:12px;color:var(--text-dim);letter-spacing:.03em;display:block;margin-bottom:6px;}
+
+  input[type=text]{width:100%;font-family:inherit;font-size:15px;background:var(--paper);color:#241f38;border:none;border-radius:8px;padding:11px 12px;outline:none;}
+  input[type=text]::placeholder{color:#7a7091;}
+  input[type=text]:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  input[type=text]:disabled{opacity:.6;}
+
+  .row{display:flex;gap:8px;}
+  .row > *{flex:1;}
+
+  button{font-family:'Gothic A1',sans-serif;font-weight:800;font-size:14px;border:none;border-radius:9px;padding:12px 14px;cursor:pointer;color:#1a1330;}
+  button.primary{background:var(--gold);}
+  button.primary:hover{filter:brightness(1.06);}
+  button.ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--border);}
+  button.ghost:hover{background:#2a3268;}
+  button.small{padding:8px 10px;font-size:12px;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:20px;padding:6px 10px 6px 6px;font-size:13px;}
+  .chip .dot{width:22px;height:22px;border-radius:50%;background:var(--gold);color:#1a1330;display:flex;align-items:center;justify-content:center;font-family:'Jua',sans-serif;font-size:12px;flex-shrink:0;}
+  .chip .score{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;}
+  .chip.me{border-color:var(--gold);}
+  .chip.drawer{border-color:var(--teal);}
+  .chip.offline{opacity:.5;}
+
+  .hint{font-size:12px;color:var(--text-dim);line-height:1.6;}
+  .error{font-size:13px;color:var(--coral);min-height:16px;}
+  .status{font-size:11px;color:var(--text-dim);text-align:center;}
+  .status.live{color:var(--teal);}
+  .status.down{color:var(--coral);}
+
+  .code-display{font-family:'Jua',sans-serif;font-size:26px;letter-spacing:.14em;color:var(--gold);text-align:center;font-variant-numeric:tabular-nums;}
+
+  .stepper{display:flex;align-items:center;gap:10px;}
+  .stepper button{width:36px;height:36px;padding:0;border-radius:8px;font-size:18px;flex:0 0 auto;}
+  .stepper-val{font-family:'Jua',sans-serif;font-size:18px;color:var(--gold);min-width:56px;text-align:center;font-variant-numeric:tabular-nums;}
+
+  .turnbanner{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;text-align:center;}
+  .turnbanner .who{font-family:'Jua',sans-serif;font-size:14px;color:var(--text-dim);}
+  .turnbanner .who b{color:var(--coral);}
+  .turnbanner .word{font-family:'Jua',sans-serif;font-size:clamp(22px,7vw,30px);color:var(--gold);margin-top:4px;letter-spacing:.12em;}
+  .turnbanner .diff{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle;font-family:'Gothic A1',sans-serif;font-weight:800;}
+  .diff-easy{background:rgba(62,217,160,.18);color:var(--teal);}
+  .diff-medium{background:rgba(255,201,74,.18);color:var(--gold);}
+  .diff-hard{background:rgba(255,107,91,.18);color:var(--coral);}
+
+  .timebar-wrap{background:var(--panel-2);border-radius:8px;height:8px;overflow:hidden;margin-top:10px;}
+  .timebar{height:100%;background:var(--gold);border-radius:8px;transition:width .4s linear;}
+  .timebar.urgent{background:var(--coral);}
+
+  .choice-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px;}
+  .choice-btn{background:var(--paper);color:#241f38;border-radius:10px;padding:10px 14px;font-weight:800;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:96px;}
+  .choice-btn small{font-weight:700;font-size:10px;}
+
+  .canvas-wrap{background:#fff;border-radius:12px;overflow:hidden;border:2px solid var(--border);line-height:0;}
+  canvas{width:100%;height:auto;display:block;touch-action:none;cursor:crosshair;}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap;}
+  .swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;}
+  .swatch.active{border-color:var(--gold);}
+  .sizes{display:flex;gap:6px;}
+  .size-btn{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;justify-content:center;padding:0;}
+  .size-btn.active{border-color:var(--gold);background:#2a3268;}
+  .size-dot{border-radius:50%;background:var(--text);}
+  .toolbar .spacer{flex:1;}
+
+  .standings{display:flex;flex-wrap:wrap;gap:8px;}
+  .standing{background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:7px 10px;font-size:12px;display:flex;align-items:center;gap:6px;}
+  .standing.me{border-color:var(--gold);}
+  .standing .pts{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;}
+  .standing .rank{color:var(--text-dim);}
+
+  .winner{text-align:center;padding:10px 0 4px;}
+  .winner .big{font-family:'Jua',sans-serif;font-size:clamp(24px,8vw,36px);color:var(--gold);}
+  .winner .sub{color:var(--text-dim);font-size:13px;margin-top:6px;}
+
+  .footer-note{text-align:center;font-size:11px;color:var(--text-dim);padding-top:4px;}
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  .chat-list{flex:1 1 auto;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:13px;min-height:120px;}
+  .chat-msg{color:var(--text);}
+  .chat-msg .chat-name{font-weight:800;color:var(--gold);margin-right:6px;}
+  .chat-msg.me .chat-name{color:var(--teal);}
+  .chat-msg.system{color:var(--text-dim);font-style:italic;font-size:12px;text-align:center;}
+  .chat-msg.correct{color:var(--teal);font-weight:700;text-align:center;font-style:italic;}
+  .chat-empty{color:var(--text-dim);font-size:12px;text-align:center;padding:14px 0;}
+  .chat-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex:0 0 auto;}
+  .chat-input-row input{flex:1;}
+  .chat-input-row button{flex:0 0 auto;}
+</style>
+</head>
+<body>
+<div class="layout" id="layout">
+  <div class="app" id="app"></div>
+  <div class="sidebar-column">
+    <aside class="chat-sidebar" id="chatSidebar" hidden>
+      <div class="chat-sidebar-head" id="chatHead">💬 채팅 / 정답 입력</div>
+      <div class="chat-list" id="chatList"></div>
+      <div class="chat-input-row"><input type="text" id="chatInput" maxlength="30" placeholder="메시지 입력"><button type="button" class="primary" id="chatSend">전송</button></div>
+    </aside>
+    <div class="card rules-card">
+      <h2>게임 방법</h2>
+      <ul class="rules-list">
+        <li>순서대로 한 명씩 <b>제시어를 골라</b> 그림을 그리고, 나머지는 채팅창에 <b>정답을 입력</b>해요.</li>
+        <li>정답을 맞히면 채팅에 정답 대신 "🎉 정답!"만 표시돼요 (스포일러 방지). 빨리 맞힐수록, 어려운 단어일수록 점수가 높아요.</li>
+        <li>그린 사람도 맞힌 사람 수만큼 점수를 받아요. 정해진 라운드가 끝나면 최종 순위가 나와요.</li>
+      </ul>
+      <div class="hint">방장이 갑자기 나가거나 연결이 끊기면, 남은 참가자 중 한 명이 자동으로 새 방장이 되어 게임이 계속돼요.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var WORDS_EASY = ["사과","바나나","고양이","강아지","물고기","나무","꽃","자동차","비행기","기차","배","우산","안경","모자","신발","가방","시계","전화기","컴퓨터","의자","책상","침대","창문","문","집","학교","병원","식당","커피","피자","햄버거","아이스크림","케이크","수박","딸기","포도","당근","토마토","계란","우유","눈사람","구름","무지개","별","산","다리","자전거","풍선","나비","코끼리","사자","호랑이","토끼","곰","돼지","오리","기린","펭귄","거북이","악어","개구리","우물","연필","가위","열쇠","촛불","선물상자"];
+  var WORDS_MEDIUM = ["소방관","경찰관","의사","간호사","요리사","선생님","농부","화가","가수","운동선수","우주비행사","과학자","프로그래머","축구","야구","농구","수영","줄넘기","등산","낚시","캠핑","여행","생일파티","결혼식","졸업식","이사","청소","양치질","샤워","잠자기","웃음","울음","포옹","줄다리기","숨바꼭질","술래잡기","윷놀이","연날리기","크리스마스트리","불꽃놀이","캠프파이어","번개","태풍","지진","화산","폭포","사막","정글","빙하","오로라","해적","마법사","공룡","로봇","외계인","유령","인어","좀비"];
+  var WORDS_HARD = ["자유","행복","우정","희망","그리움","외로움","질투","인내","용기","정의","거짓말","비밀","후회","감사","효도","우연","운명","인연","성공","실패","도전","포기","극복","성장","책임","야근","회식","월급","투자","인공지능","메타버스","바이러스","백신","환경오염","지구온난화","재활용","미세먼지","전기차","화상회의","재택근무","마감","협상","저작권","선입견","합리화","동상이몽"];
+
+  var CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var ID_PREFIX = "cmgo-";
+  var CW = 480, CH = 340;
+  var CHOOSE_SECONDS = 12, REVEAL_SECONDS = 6;
+  var TURN_OPTIONS = [45,60,75,90,120];
+  var ROUND_OPTIONS = [1,2,3,4];
+  var COLORS = ["#1a1330","#ff6b5b","#ffc94a","#3ed9a0","#4a8cff","#a259ff","#ff8fd6","#7a5230","#ffffff"];
+  var SIZES = [4,10,20];
+
+  var app = document.getElementById('app');
+
+  var myName = "";
+  var myId = null;
+  var isHost = false;
+  var peer = null;
+  var connections = null;   // host only: Map<peerId, DataConnection>
+  var hostConn = null;      // client only
+  var roomCode = null;
+  var game = null;
+  var pendingError = "";
+  var connStatus = "idle";  // idle | connecting | live | down
+  var hostTicker = null;
+
+  var shell = { key: null };
+  var canvasEl = null, canvasCtx = null;
+  var drawState = { color: COLORS[0], size: SIZES[1], drawing:false, lastPt:null };
+
+  function savedName(){ try{ return localStorage.getItem('drawgame_name') || ''; }catch(e){ return ''; } }
+  function saveName(n){ try{ localStorage.setItem('drawgame_name', n); }catch(e){} }
+
+  function genCode(){
+    var s=''; for(var i=0;i<4;i++) s += CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];
+    return s;
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function normalize(w){ return (w||'').trim().toLowerCase().replace(/\s+/g,''); }
+  function shuffle(arr){
+    var a=arr.slice();
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a;
+  }
+  function pick(arr, usedSet){
+    var pool = arr.filter(function(w){ return !usedSet.has(w); });
+    if(!pool.length) pool = arr;
+    return pool[Math.floor(Math.random()*pool.length)];
+  }
+  function diffLabel(d){ return d==='easy'?'쉬움':(d==='hard'?'어려움':'보통'); }
+  function diffBase(d){ return d==='easy'?60:(d==='hard'?130:90); }
+
+  function freshGame(){
+    return {
+      phase:'lobby', hostId:null, players:[],
+      settings:{ turnSeconds:75, rounds:2 },
+      turnOrder:null, round:1, turnIndex:0,
+      subPhase:null, wordChoices:null, currentWord:null, difficulty:null,
+      chooseStartAt:null, turnStartAt:null, revealAt:null,
+      guessedIds:[], drawerScoreGain:0, usedWords:[],
+      strokes:[], chat:[], winners:null, transferTo:null
+    };
+  }
+
+  function currentDrawerId(){
+    if(!game || !game.turnOrder) return null;
+    return game.turnOrder[game.turnIndex];
+  }
+  function amIDrawer(){ return !!game && currentDrawerId()===myId; }
+  function activePlayers(){ return game.players.filter(function(p){ return p.connected!==false; }); }
+
+  // ---------- HOST-SIDE STATE MUTATIONS ----------
+  function applyJoin(id, name){
+    var p = game.players.find(function(p){return p.id===id;});
+    if(p){ p.name = name; p.connected = true; return; }
+    var stale = game.players.find(function(pp){
+      if(pp.name!==name || pp.id===id) return false;
+      var liveConn = connections && connections.get(pp.id);
+      return !(liveConn && liveConn.open);
+    });
+    if(stale){
+      var oldId = stale.id;
+      stale.id = id;
+      stale.connected = true;
+      if(game.turnOrder){ game.turnOrder = game.turnOrder.map(function(pid){ return pid===oldId ? id : pid; }); }
+      if(game.guessedIds){ game.guessedIds = game.guessedIds.map(function(pid){ return pid===oldId ? id : pid; }); }
+      return;
+    }
+    game.players.push({id:id, name:name, score:0, connected:true});
+  }
+  function applySetSettings(requesterId, turnSeconds, rounds){
+    if(requesterId !== myId) return;
+    if(game.phase!=='lobby') return;
+    if(TURN_OPTIONS.indexOf(turnSeconds)===-1 || ROUND_OPTIONS.indexOf(rounds)===-1) return;
+    game.settings.turnSeconds = turnSeconds;
+    game.settings.rounds = rounds;
+  }
+  function startTurnChoosing(){
+    var used = new Set(game.usedWords||[]);
+    game.wordChoices = [
+      {word:pick(WORDS_EASY,used), diff:'easy'},
+      {word:pick(WORDS_MEDIUM,used), diff:'medium'},
+      {word:pick(WORDS_HARD,used), diff:'hard'}
+    ];
+    game.subPhase='choosing'; game.currentWord=null; game.difficulty=null;
+    game.chooseStartAt=Date.now(); game.turnStartAt=null; game.revealAt=null;
+    game.guessedIds=[]; game.drawerScoreGain=0; game.strokes=[];
+  }
+  function applyStartGame(requesterId){
+    if(requesterId !== myId) return;
+    if(game.phase!=='lobby') return;
+    var active = activePlayers();
+    if(active.length<2) return;
+    game.turnOrder = shuffle(active.map(function(p){return p.id;}));
+    game.round = 1; game.turnIndex = 0; game.usedWords=[];
+    game.phase = 'playing';
+    startTurnChoosing();
+  }
+  function applyChooseWord(id, word){
+    if(game.phase!=='playing' || game.subPhase!=='choosing') return;
+    if(id !== currentDrawerId()) return;
+    var found = (game.wordChoices||[]).find(function(c){return c.word===word;});
+    if(!found) return;
+    game.currentWord = found.word; game.difficulty = found.diff;
+    game.usedWords = (game.usedWords||[]).concat([found.word]);
+    game.wordChoices = null;
+    game.subPhase = 'drawing'; game.turnStartAt = Date.now();
+  }
+  function autoPickWord(){
+    var found = (game.wordChoices||[])[1] || (game.wordChoices||[])[0];
+    if(!found) return;
+    game.currentWord = found.word; game.difficulty = found.diff;
+    game.usedWords = (game.usedWords||[]).concat([found.word]);
+    game.wordChoices = null;
+    game.subPhase = 'drawing'; game.turnStartAt = Date.now();
+  }
+  function scoreForGuess(remainingMs, totalMs, diff){
+    var frac = Math.max(0.15, remainingMs/totalMs);
+    return Math.round(diffBase(diff)*frac) + (game.guessedIds.length===0?20:0);
+  }
+  function applyGuess(id, text){
+    if(game.phase!=='playing') return;
+    var player = game.players.find(function(p){return p.id===id;});
+    if(!player) return;
+    text = String(text||'').trim().slice(0,30);
+    if(!text) return;
+    if(game.subPhase==='drawing' && id!==currentDrawerId() && game.guessedIds.indexOf(id)===-1 && normalize(text)===normalize(game.currentWord)){
+      var totalMs = game.settings.turnSeconds*1000;
+      var remainingMs = Math.max(0, totalMs - (Date.now()-game.turnStartAt));
+      var pts = scoreForGuess(remainingMs, totalMs, game.difficulty);
+      player.score += pts;
+      game.guessedIds.push(id);
+      game.drawerScoreGain += 15;
+      game.chat = (game.chat||[]).concat([{ correct:true, text: '🎉 '+player.name+'님 정답! (+'+pts+'점)' }]).slice(-50);
+      var nonDrawerActive = activePlayers().filter(function(p){return p.id!==currentDrawerId();});
+      if(nonDrawerActive.every(function(p){ return game.guessedIds.indexOf(p.id)!==-1; })){
+        endDrawingEarly();
+      }
+    } else {
+      game.chat = (game.chat||[]).concat([{ name:player.name, text:text }]).slice(-50);
+    }
+  }
+  function endDrawingEarly(){
+    applyDrawerReward();
+    game.subPhase='reveal'; game.revealAt=Date.now();
+  }
+  function applyDrawerReward(){
+    var drawer = game.players.find(function(p){return p.id===currentDrawerId();});
+    if(drawer && game.drawerScoreGain) drawer.score += game.drawerScoreGain;
+    game.drawerScoreGain = 0;
+  }
+  function applyClearCanvas(id){
+    if(game.phase!=='playing' || game.subPhase!=='drawing') return;
+    if(id !== currentDrawerId()) return;
+    game.strokes = [];
+  }
+  function applyPlayAgain(requesterId){
+    if(requesterId !== myId) return;
+    if(game.phase!=='ended') return;
+    game.phase='lobby'; game.turnOrder=null; game.subPhase=null; game.wordChoices=null;
+    game.currentWord=null; game.difficulty=null; game.guessedIds=[]; game.strokes=[];
+    game.chat=[]; game.winners=null; game.usedWords=[];
+    game.players.forEach(function(p){ p.score=0; });
+  }
+  function nextTurn(){
+    var order = game.turnOrder;
+    for(var tries=0; tries<order.length*(game.settings.rounds+1); tries++){
+      game.turnIndex++;
+      if(game.turnIndex>=order.length){ game.turnIndex=0; game.round++; }
+      if(game.round > game.settings.rounds){
+        game.phase='ended';
+        game.winners = game.players.slice().sort(function(a,b){return b.score-a.score;});
+        game.subPhase=null;
+        return;
+      }
+      var drawer = game.players.find(function(p){return p.id===order[game.turnIndex];});
+      if(drawer && drawer.connected!==false) { startTurnChoosing(); return; }
+    }
+    game.phase='ended';
+    game.winners = game.players.slice().sort(function(a,b){return b.score-a.score;});
+    game.subPhase=null;
+  }
+  function hostTick(){
+    if(!isHost || !game || game.phase!=='playing') return;
+    var now = Date.now(); var changed=false;
+    if(game.subPhase==='choosing' && game.chooseStartAt && now-game.chooseStartAt>=CHOOSE_SECONDS*1000){
+      autoPickWord(); changed=true;
+    } else if(game.subPhase==='drawing' && game.turnStartAt && now-game.turnStartAt>=game.settings.turnSeconds*1000){
+      if(game.guessedIds.length===0){
+        game.chat = (game.chat||[]).concat([{ system:true, text: '⏰ 시간 종료! 정답은 "'+game.currentWord+'" 였어요.' }]).slice(-50);
+      }
+      applyDrawerReward();
+      game.subPhase='reveal'; game.revealAt=now; changed=true;
+    } else if(game.subPhase==='reveal' && game.revealAt && now-game.revealAt>=REVEAL_SECONDS*1000){
+      nextTurn(); changed=true;
+    }
+    if(changed) broadcastState();
+  }
+  function startHostTicker(){
+    stopHostTicker();
+    hostTicker = setInterval(hostTick, 500);
+  }
+  function stopHostTicker(){ if(hostTicker){ clearInterval(hostTicker); hostTicker=null; } }
+
+  function dispatch(senderId, msg){
+    if(msg.t==='join') applyJoin(senderId, msg.name);
+    else if(msg.t==='setSettings') applySetSettings(senderId, msg.turnSeconds, msg.rounds);
+    else if(msg.t==='startGame') applyStartGame(senderId);
+    else if(msg.t==='chooseWord') applyChooseWord(senderId, msg.word);
+    else if(msg.t==='guess') applyGuess(senderId, msg.text);
+    else if(msg.t==='chat') applyGuess(senderId, msg.text);
+    else if(msg.t==='clearCanvas') applyClearCanvas(senderId);
+    else if(msg.t==='playAgain') applyPlayAgain(senderId);
+    broadcastState();
+  }
+  function handleIncoming(senderId, msg){
+    if(msg.t==='draw'){
+      if(!game || game.phase!=='playing' || game.subPhase!=='drawing') return;
+      if(senderId !== currentDrawerId()) return;
+      game.strokes.push(msg.seg);
+      if(game.strokes.length>4000) game.strokes.splice(0, game.strokes.length-4000);
+      if(connections){
+        connections.forEach(function(conn,pid){ if(pid!==senderId && conn.open) conn.send({t:'strokeSeg', seg:msg.seg}); });
+      }
+      if(senderId!==myId) drawSegRaw(msg.seg);
+      return;
+    }
+    if(msg.t==='clearCanvas'){
+      applyClearCanvas(senderId);
+      if(connections){ connections.forEach(function(conn,pid){ if(pid!==senderId && conn.open) conn.send({t:'clearCanvasNow'}); }); }
+      clearCanvasLocal();
+      broadcastState();
+      return;
+    }
+    dispatch(senderId, msg);
+  }
+  function broadcastState(){
+    if(connections){
+      connections.forEach(function(conn){ if(conn.open) conn.send({t:'state', game:game}); });
+    }
+    render();
+  }
+  function act(msg){
+    if(isHost){ handleIncoming(myId, msg); }
+    else if(hostConn && hostConn.open){ hostConn.send(msg); }
+  }
+
+  // ---------- CONNECTION SETUP ----------
+  function createRoom(name){
+    myName = name; saveName(name);
+    connStatus = 'connecting'; renderLandingStatus();
+    tryCreate(0);
+  }
+  function tryCreate(attempt){
+    var code = genCode();
+    var p = new Peer(ID_PREFIX+code, {debug:0});
+    p.on('open', function(id){
+      isHost = true; myId = id; roomCode = code; peer = p;
+      connections = new Map();
+      game = freshGame();
+      game.hostId = myId;
+      applyJoin(myId, myName);
+      wireHostPeer(p);
+      history.replaceState(null,'','#'+code);
+      connStatus = 'live'; startHostTicker();
+      render();
+    });
+    p.on('error', function(err){
+      if(err && err.type==='unavailable-id' && attempt<5){ p.destroy(); tryCreate(attempt+1); return; }
+      connStatus='down';
+      pendingError='방 생성에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.';
+      render();
+    });
+  }
+  function wireHostPeer(p){
+    p.on('connection', function(conn){
+      conn.on('open', function(){ connections.set(conn.peer, conn); broadcastState(); });
+      conn.on('data', function(msg){ handleIncoming(conn.peer, msg); });
+      conn.on('close', function(){
+        if(!connections) return;
+        connections.delete(conn.peer);
+        var pl = game.players.find(function(pp){return pp.id===conn.peer;});
+        if(pl) pl.connected = false;
+        broadcastState();
+      });
+    });
+  }
+
+  var voluntaryLeaving = false;
+  function joinRoom(name, code, opts){
+    opts = opts || {};
+    var attempt = opts.attempt || 0;
+    var isRejoin = !!opts.isRejoin;
+    myName = name; saveName(name);
+    pendingError = isRejoin ? '다시 연결하는 중...' : '연결하는 중...';
+    connStatus = 'connecting';
+    render();
+    var p = new Peer(undefined, {debug:0});
+    var wasKicked = false;
+    var promoted = false;
+    p.on('open', function(id){
+      myId = id; peer = p; roomCode = code;
+      var conn = p.connect(ID_PREFIX+code, {reliable:true});
+      hostConn = conn;
+      conn.on('open', function(){
+        conn.send({t:'join', name: myName});
+        history.replaceState(null,'','#'+code);
+        pendingError=''; connStatus='live';
+        render();
+      });
+      conn.on('data', function(msg){
+        if(msg.t==='state'){
+          game = msg.game;
+          render();
+        }
+        else if(msg.t==='strokeSeg'){ drawSegRaw(msg.seg); }
+        else if(msg.t==='clearCanvasNow'){ clearCanvasLocal(); }
+        else if(msg.t==='kicked'){
+          if(voluntaryLeaving) return;
+          wasKicked = true;
+          game = null; connStatus = 'down';
+          pendingError = '연결이 종료됐어요.';
+          try{ conn.close(); }catch(e){}
+          render();
+        }
+      });
+      conn.on('close', function(){
+        if(wasKicked || voluntaryLeaving || promoted) return;
+        if(game && game.hostId){
+          var deadHostId = game.hostId;
+          var deadHostPlayer = game.players.find(function(pp){return pp.id===deadHostId;});
+          var deadHostName = deadHostPlayer ? deadHostPlayer.name : '방장';
+          var elected = pickFailoverHost(game.players, deadHostId, roomCode);
+          if(elected && elected===myId){
+            promoted = true;
+            becomeFailoverHost(deadHostId, deadHostName);
+            return;
+          }
+          if(elected){
+            pendingError = '호스트 연결이 끊어졌어요. 새 방장을 정하는 중...';
+            connStatus = 'connecting';
+            render();
+            setTimeout(function(){ joinRoom(myName, roomCode, {isRejoin:true}); }, 1500);
+            return;
+          }
+        }
+        connStatus='down';
+        pendingError='호스트와 연결이 끊어졌어요. 호스트가 화면을 닫았을 수 있어요.';
+        render();
+      });
+      conn.on('error', function(){
+        connStatus='down';
+        pendingError='연결 중 문제가 발생했어요.';
+        render();
+      });
+    });
+    p.on('error', function(err){
+      if(err && err.type==='peer-unavailable' && attempt<6){
+        try{ p.destroy(); }catch(e){}
+        setTimeout(function(){ joinRoom(name, code, {attempt:attempt+1, isRejoin:isRejoin}); }, 700);
+        return;
+      }
+      connStatus='down';
+      if(err && err.type==='peer-unavailable'){ pendingError='존재하지 않는 방이에요. 코드를 확인해주세요.'; }
+      else { pendingError='연결 중 문제가 발생했어요. 다시 시도해주세요.'; }
+      game=null; render();
+    });
+  }
+
+  function hashStr(s){
+    var h=0;
+    for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i))|0; }
+    return Math.abs(h);
+  }
+  function pickFailoverHost(players, deadHostId, code){
+    var candidates = players.filter(function(p){ return p.id!==deadHostId && p.connected!==false; }).map(function(p){return p.id;}).sort();
+    if(!candidates.length) return null;
+    var idx = hashStr((code||'')+'|'+candidates.join(',')) % candidates.length;
+    return candidates[idx];
+  }
+  function becomeFailoverHost(deadHostId, deadHostName){
+    var oldPeer = peer;
+    var oldConn = hostConn;
+    var previousId = myId;
+    pendingError = '방장이 되는 중이에요...';
+    connStatus = 'connecting';
+    render();
+    try{ if(oldConn) oldConn.close(); }catch(e){}
+    try{ if(oldPeer) oldPeer.destroy(); }catch(e){}
+    hostConn = null; peer = null;
+    setTimeout(function(){ tryClaimHostFailover(previousId, deadHostId, deadHostName, 0); }, 400);
+  }
+  function tryClaimHostFailover(previousId, deadHostId, deadHostName, attempt){
+    var code = roomCode;
+    var p = new Peer(ID_PREFIX+code, {debug:0});
+    p.on('open', function(id){
+      var mySnapshot = game.players.find(function(pp){return pp.id===previousId;});
+      isHost = true; myId = id; peer = p; roomCode = code;
+      connections = new Map();
+      if(game.turnOrder){ game.turnOrder = game.turnOrder.map(function(pid){ return pid===previousId ? id : pid; }); }
+      game.guessedIds = (game.guessedIds||[]).map(function(pid){ return pid===previousId ? id : pid; });
+      game.players = game.players.filter(function(pp){ return pp.id!==previousId && pp.id!==deadHostId; });
+      game.players.push({
+        id:id, name:myName,
+        score: mySnapshot ? mySnapshot.score : 0,
+        connected:true
+      });
+      game.hostId = id;
+      if(game.turnOrder){
+        var tIdx = game.turnOrder.indexOf(deadHostId);
+        if(tIdx!==-1){
+          game.turnOrder.splice(tIdx,1);
+          if(game.turnOrder.length===0){ game.phase='ended'; game.winners=game.players.slice().sort(function(a,b){return b.score-a.score;}); }
+          else if(game.turnIndex!=null){
+            if(tIdx < game.turnIndex) game.turnIndex--;
+            else game.turnIndex = game.turnIndex % game.turnOrder.length;
+          }
+        }
+      }
+      game.chat = (game.chat||[]).concat([{ system:true, text: '👑 방장이 '+(deadHostName||'이전 방장')+'님에서 '+myName+'님으로 바뀌었어요 (연결 끊김)' }]).slice(-50);
+      wireHostPeer(p);
+      connStatus = 'live'; startHostTicker();
+      broadcastState();
+    });
+    p.on('error', function(err){
+      if(err && err.type==='unavailable-id' && attempt<8){ try{ p.destroy(); }catch(e){} setTimeout(function(){ tryClaimHostFailover(previousId, deadHostId, deadHostName, attempt+1); }, 500); return; }
+      connStatus='down';
+      pendingError='방장 승격에 실패했어요. 방이 끊어졌을 수 있어요. 새로 방을 만들어주세요.';
+      game=null; render();
+    });
+  }
+
+  function leaveRoom(){
+    voluntaryLeaving = true;
+    stopHostTicker();
+    setTimeout(function(){
+      try{ if(hostConn) hostConn.close(); }catch(e){}
+      try{ if(peer) peer.destroy(); }catch(e){}
+      game=null; isHost=false; connections=null; connStatus='idle'; pendingError=''; hostConn=null; peer=null; myId=null;
+      voluntaryLeaving = false;
+      history.replaceState(null,'','#');
+      render();
+    }, 150);
+  }
+
+  // ---------- CANVAS ----------
+  function mountCanvas(){
+    canvasEl = document.getElementById('drawCanvas');
+    if(!canvasEl) { canvasCtx=null; return; }
+    canvasEl.width = CW; canvasEl.height = CH;
+    canvasCtx = canvasEl.getContext('2d');
+    canvasCtx.fillStyle = '#ffffff';
+    canvasCtx.fillRect(0,0,CW,CH);
+    canvasCtx.lineCap='round'; canvasCtx.lineJoin='round';
+    (game.strokes||[]).forEach(drawSegRaw);
+    if(amIDrawer() && game.subPhase==='drawing'){ wireCanvasInput(); }
+  }
+  function clearCanvasLocal(){
+    if(!canvasCtx) return;
+    canvasCtx.fillStyle = '#ffffff';
+    canvasCtx.fillRect(0,0,CW,CH);
+  }
+  function drawSegRaw(seg){
+    if(!canvasCtx) return;
+    canvasCtx.strokeStyle = seg.color; canvasCtx.lineWidth = seg.size;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(seg.x0, seg.y0);
+    canvasCtx.lineTo(seg.x1, seg.y1);
+    canvasCtx.stroke();
+  }
+  function getPt(evt){
+    var rect = canvasEl.getBoundingClientRect();
+    var cx = (evt.clientX - rect.left) * (CW/rect.width);
+    var cy = (evt.clientY - rect.top) * (CH/rect.height);
+    return { x: Math.max(0,Math.min(CW,cx)), y: Math.max(0,Math.min(CH,cy)) };
+  }
+  function wireCanvasInput(){
+    if(!canvasEl || canvasEl._wired) return;
+    canvasEl._wired = true;
+    canvasEl.addEventListener('pointerdown', function(e){
+      if(!amIDrawer() || !game || game.subPhase!=='drawing') return;
+      drawState.drawing = true; drawState.lastPt = getPt(e);
+      try{ canvasEl.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    canvasEl.addEventListener('pointermove', function(e){
+      if(!drawState.drawing || !amIDrawer() || !game || game.subPhase!=='drawing') return;
+      var p = getPt(e);
+      var seg = { x0:drawState.lastPt.x, y0:drawState.lastPt.y, x1:p.x, y1:p.y, color:drawState.color, size:drawState.size };
+      drawState.lastPt = p;
+      drawSegRaw(seg);
+      act({t:'draw', seg:seg});
+    });
+    function endStroke(){ drawState.drawing=false; drawState.lastPt=null; }
+    canvasEl.addEventListener('pointerup', endStroke);
+    canvasEl.addEventListener('pointerleave', endStroke);
+    canvasEl.addEventListener('pointercancel', endStroke);
+  }
+
+  // ---------- RENDER ----------
+  function titleBarHTML(){
+    var dot = connStatus==='live' ? '<span class="status live">● 연결됨</span>' : (connStatus==='down' ? '<span class="status down">● 연결 끊김</span>' : '<span class="status">연결 중...</span>');
+    return '<div class="marquee"><div class="bulbs"></div><div class="inner" style="padding:14px 16px;"><h1 class="display" style="font-size:18px;">YES, 그림GO!</h1>'+dot+'</div><div class="bulbs"></div></div>';
+  }
+
+  function render(){
+    if(!game){
+      var sidebar = document.getElementById('chatSidebar');
+      if(sidebar) sidebar.hidden = true;
+      renderLanding();
+      return;
+    }
+    var phase = game.phase;
+    var shellKey = roomCode+'|'+phase+'|'+(isHost?'H':'P')+(phase==='playing' ? ('|'+game.round+'|'+game.turnIndex+'|'+game.subPhase) : '');
+    if(shell.key !== shellKey){
+      shell.key = shellKey;
+      canvasEl=null; canvasCtx=null;
+      if(phase==='lobby') buildLobbyShell();
+      else if(phase==='playing') buildPlayingShell();
+      else if(phase==='ended') buildEndedShell();
+    }
+    if(phase==='lobby') updateLobbyDynamic();
+    else if(phase==='playing') updatePlayingDynamic();
+    else if(phase==='ended') updateEndedDynamic();
+    updateChatUI();
+  }
+
+  function wireChatSidebarOnce(){
+    var sendBtn = document.getElementById('chatSend');
+    var input = document.getElementById('chatInput');
+    var send = function(){
+      var text = input.value.trim();
+      if(!text || !game) return;
+      var isGuessable = game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && game.guessedIds.indexOf(myId)===-1;
+      act({t: isGuessable ? 'guess' : 'chat', text:text});
+      input.value='';
+    };
+    sendBtn.addEventListener('click', send);
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); send(); } });
+  }
+  function scrollChatToBottom(){
+    var list = document.getElementById('chatList');
+    if(list) list.scrollTop = list.scrollHeight;
+  }
+  function updateChatUI(){
+    var sidebar = document.getElementById('chatSidebar');
+    if(!game){ sidebar.hidden = true; return; }
+    sidebar.hidden = false;
+    var head = document.getElementById('chatHead');
+    var input = document.getElementById('chatInput');
+    if(game.phase==='playing' && game.subPhase==='drawing' && !amIDrawer() && game.guessedIds.indexOf(myId)===-1){
+      head.textContent = '💬 정답을 입력해보세요!';
+      input.placeholder = '정답 또는 채팅 입력';
+    } else if(game.phase==='playing' && game.subPhase==='drawing' && amIDrawer()){
+      head.textContent = '💬 채팅 (그리는 중에는 정답을 말하지 마세요!)';
+      input.placeholder = '채팅 입력';
+    } else {
+      head.textContent = '💬 채팅';
+      input.placeholder = '메시지 입력';
+    }
+    var chat = game.chat || [];
+    var list = document.getElementById('chatList');
+    if(list){
+      list.innerHTML = chat.map(function(m){
+        if(m.system) return '<div class="chat-msg system">'+esc(m.text)+'</div>';
+        if(m.correct) return '<div class="chat-msg correct">'+esc(m.text)+'</div>';
+        return '<div class="chat-msg'+(m.name===myName?' me':'')+'"><span class="chat-name">'+esc(m.name)+'</span>'+esc(m.text)+'</div>';
+      }).join('') || '<div class="chat-empty">아직 메시지가 없어요</div>';
+      scrollChatToBottom();
+    }
+  }
+
+  function renderLandingStatus(){
+    var el = document.getElementById('landingStatus');
+    if(el) el.textContent = connStatus==='connecting' ? '연결하는 중...' : '';
+  }
+
+  function renderLanding(){
+    var hashCode = (location.hash||'').replace('#','').toUpperCase();
+    app.innerHTML =
+      '<div class="marquee"><div class="bulbs blink"></div><div class="inner"><h1 class="display" style="font-size:clamp(22px,6vw,32px);">YES, 그림GO!</h1><p>각자 PC/폰으로 접속하는 실시간 P2P 그림 맞히기</p></div><div class="bulbs blink"></div></div>' +
+      '<div class="card"><div><label for="nameInput">내 이름</label><input type="text" id="nameInput" maxlength="10" placeholder="닉네임을 입력하세요" value="'+esc(savedName())+'"></div></div>' +
+      '<div class="card">' +
+        '<h2>새 방 만들기</h2>' +
+        '<button class="primary" id="createBtn">방 만들기</button>' +
+        '<div class="hint">방을 만든 사람의 화면(브라우저 탭)이 게임 내내 열려 있어야 해요</div>' +
+      '</div>' +
+      '<div class="card">' +
+        '<h2>참가하기</h2>' +
+        '<div class="row"><input type="text" id="codeInput" maxlength="4" placeholder="방 코드 4자리" value="'+esc(hashCode)+'" style="text-transform:uppercase;letter-spacing:.12em;"><button class="ghost" id="joinBtn" style="flex:0 0 auto;">참가</button></div>' +
+      '</div>' +
+      '<div class="error" id="landingError">'+esc(pendingError)+'</div>' +
+      '<div class="footer-note">최소 2명이 모이면 시작할 수 있어요 &middot; 계정/로그인 필요 없음</div>';
+
+    document.getElementById('createBtn').addEventListener('click', function(){
+      var name = document.getElementById('nameInput').value.trim();
+      if(!name){ pendingError='이름을 입력해주세요.'; render(); return; }
+      pendingError=''; createRoom(name);
+    });
+    document.getElementById('joinBtn').addEventListener('click', function(){
+      var name = document.getElementById('nameInput').value.trim();
+      var code = document.getElementById('codeInput').value.trim().toUpperCase();
+      if(!name){ pendingError='이름을 입력해주세요.'; render(); return; }
+      if(code.length!==4){ pendingError='방 코드 4자리를 입력해주세요.'; render(); return; }
+      pendingError=''; joinRoom(name, code);
+    });
+  }
+
+  // ---------- LOBBY ----------
+  var lobbySettings = { turnSeconds:75, rounds:2 };
+  function buildLobbyShell(){
+    lobbySettings = { turnSeconds: game.settings.turnSeconds, rounds: game.settings.rounds };
+    app.innerHTML = titleBarHTML() +
+      '<div class="card">' +
+        '<div class="code-display">'+esc(roomCode)+'</div>' +
+        '<div class="hint" style="text-align:center;">이 코드를 친구에게 알려주세요 &middot; <span id="copyLink" style="text-decoration:underline;cursor:pointer;">참가 링크 복사</span></div>' +
+        (location.protocol==='file:' ? '<div class="hint" style="text-align:center;color:var(--coral);">⚠️ 이 파일을 로컬에서 열고 있어요 — 참가 링크는 이 페이지가 인터넷에 올라가 있어야 다른 사람이 열 수 있어요. 코드로 참가하도록 안내해주세요.</div>' : '') +
+      '</div>' +
+      '<div class="card"><h2>참가자</h2><div class="chips" id="playersChips"></div></div>' +
+      '<div class="card">' +
+        '<h2>게임 설정</h2>' +
+        (isHost ? '' : '<div class="hint">방장만 설정을 바꿀 수 있어요</div>') +
+        '<div><label>턴당 시간</label><div class="stepper">' +
+          '<button type="button" class="ghost" id="turnMinus"'+(isHost?'':' disabled')+'>−</button>' +
+          '<div class="stepper-val" id="turnVal">'+lobbySettings.turnSeconds+'초</div>' +
+          '<button type="button" class="ghost" id="turnPlus"'+(isHost?'':' disabled')+'>+</button>' +
+        '</div></div>' +
+        '<div><label>1인당 그리는 횟수 (라운드)</label><div class="stepper">' +
+          '<button type="button" class="ghost" id="roundMinus"'+(isHost?'':' disabled')+'>−</button>' +
+          '<div class="stepper-val" id="roundVal">'+lobbySettings.rounds+'회</div>' +
+          '<button type="button" class="ghost" id="roundPlus"'+(isHost?'':' disabled')+'>+</button>' +
+        '</div></div>' +
+        (isHost ? '<button class="primary" id="startBtn">게임 시작</button>' : '') +
+        '<div class="hint" id="lobbyHint"></div>' +
+      '</div>';
+
+    document.getElementById('copyLink').addEventListener('click', function(){
+      if(location.protocol==='file:'){
+        alert('이 링크는 지금 내 기기 안의 파일 경로라 다른 사람이 열 수 없어요. 대신 방 코드("'+roomCode+'")를 알려주고, 이 파일을 똑같이 전달해서 열도록 안내해주세요.');
+        return;
+      }
+      var url = location.href.split('#')[0] + '#' + roomCode;
+      try{ navigator.clipboard.writeText(url); this.textContent='복사됨!'; setTimeout(function(){ var e=document.getElementById('copyLink'); if(e) e.textContent='참가 링크 복사'; },1500); }catch(e){}
+    });
+    if(isHost){
+      var stepIdx = function(options, val, dir){ var i=options.indexOf(val); i=Math.max(0,Math.min(options.length-1,i+dir)); return options[i]; };
+      document.getElementById('turnMinus').addEventListener('click', function(){ lobbySettings.turnSeconds = stepIdx(TURN_OPTIONS, lobbySettings.turnSeconds, -1); document.getElementById('turnVal').textContent = lobbySettings.turnSeconds+'초'; act({t:'setSettings', turnSeconds:lobbySettings.turnSeconds, rounds:lobbySettings.rounds}); });
+      document.getElementById('turnPlus').addEventListener('click', function(){ lobbySettings.turnSeconds = stepIdx(TURN_OPTIONS, lobbySettings.turnSeconds, 1); document.getElementById('turnVal').textContent = lobbySettings.turnSeconds+'초'; act({t:'setSettings', turnSeconds:lobbySettings.turnSeconds, rounds:lobbySettings.rounds}); });
+      document.getElementById('roundMinus').addEventListener('click', function(){ lobbySettings.rounds = stepIdx(ROUND_OPTIONS, lobbySettings.rounds, -1); document.getElementById('roundVal').textContent = lobbySettings.rounds+'회'; act({t:'setSettings', turnSeconds:lobbySettings.turnSeconds, rounds:lobbySettings.rounds}); });
+      document.getElementById('roundPlus').addEventListener('click', function(){ lobbySettings.rounds = stepIdx(ROUND_OPTIONS, lobbySettings.rounds, 1); document.getElementById('roundVal').textContent = lobbySettings.rounds+'회'; act({t:'setSettings', turnSeconds:lobbySettings.turnSeconds, rounds:lobbySettings.rounds}); });
+      document.getElementById('startBtn').addEventListener('click', function(){
+        if(activePlayers().length<2){ document.getElementById('lobbyHint').textContent='최소 2명이 모여야 시작할 수 있어요.'; return; }
+        act({t:'startGame'});
+      });
+    }
+    wireChatSidebarOnce();
+  }
+  function playerChipHTML(p){
+    var cls = 'chip'+(p.id===myId?' me':'')+(p.connected===false?' offline':'');
+    return '<div class="'+cls+'"><span class="dot">'+esc((p.name||'?').charAt(0))+'</span>'+esc(p.name)+(p.id===myId?' <span class="wait">(나)</span>':'')+(p.connected===false?' <span class="wait">(끊김)</span>':'')+'</div>';
+  }
+  function updateLobbyDynamic(){
+    var chips = document.getElementById('playersChips');
+    if(chips){ chips.innerHTML = game.players.map(playerChipHTML).join('') || '<span class="hint">아직 아무도 없어요</span>'; }
+  }
+
+  // ---------- PLAYING ----------
+  function buildPlayingShell(){
+    var drawerId = currentDrawerId();
+    var drawer = game.players.find(function(p){return p.id===drawerId;});
+    var drawerName = drawer ? drawer.name : '?';
+    var iAmDrawer = amIDrawer();
+
+    var bannerHTML = '';
+    if(game.subPhase==='choosing'){
+      bannerHTML = '<div class="turnbanner"><div class="who"><b>'+esc(drawerName)+'</b>님이 제시어를 고르는 중...</div>' +
+        (iAmDrawer ? '<div class="choice-row" id="choiceRow"></div>' : '<div class="hint" style="margin-top:8px;">잠시만 기다려주세요</div>') +
+        '<div class="timebar-wrap"><div class="timebar" id="timebar"></div></div></div>';
+    } else if(game.subPhase==='drawing'){
+      var wordDisplay = iAmDrawer ? esc(game.currentWord) : Array(game.currentWord.length).fill('＿').join(' ');
+      bannerHTML = '<div class="turnbanner"><div class="who"><b>'+esc(drawerName)+'</b>님이 그리는 중</div>' +
+        '<div class="word">'+wordDisplay+'<span class="diff diff-'+game.difficulty+'">'+diffLabel(game.difficulty)+'</span></div>' +
+        '<div class="timebar-wrap"><div class="timebar" id="timebar"></div></div></div>';
+    } else if(game.subPhase==='reveal'){
+      bannerHTML = '<div class="turnbanner"><div class="who">이번 라운드 정답은</div><div class="word">'+esc(game.currentWord)+'</div>' +
+        '<div class="timebar-wrap"><div class="timebar" id="timebar"></div></div></div>';
+    }
+
+    var toolbarHTML = '';
+    if(iAmDrawer && game.subPhase==='drawing'){
+      toolbarHTML = '<div class="toolbar" id="toolbar">' +
+        '<div class="swatches" id="swatches">' + COLORS.map(function(c){ return '<button type="button" class="swatch" data-color="'+c+'" style="background:'+c+';'+(c==='#ffffff'?'box-shadow:inset 0 0 0 1px #ccc;':'')+'"></button>'; }).join('') + '</div>' +
+        '<div class="sizes" id="sizes">' + SIZES.map(function(s,i){ return '<button type="button" class="size-btn" data-size="'+s+'"><span class="size-dot" style="width:'+(6+i*5)+'px;height:'+(6+i*5)+'px;"></span></button>'; }).join('') + '</div>' +
+        '<div class="spacer"></div>' +
+        '<button type="button" class="ghost small" id="clearBtn">전체 지우기</button>' +
+      '</div>';
+    }
+
+    app.innerHTML = titleBarHTML() +
+      bannerHTML +
+      '<div class="canvas-wrap"><canvas id="drawCanvas"></canvas></div>' +
+      toolbarHTML +
+      '<div class="card"><h2 style="margin-bottom:2px;">순위</h2><div class="standings" id="standings"></div></div>';
+
+    mountCanvas();
+
+    if(iAmDrawer && game.subPhase==='choosing'){
+      var row = document.getElementById('choiceRow');
+      row.innerHTML = (game.wordChoices||[]).map(function(c){
+        return '<button type="button" class="choice-btn" data-word="'+esc(c.word)+'">'+esc(c.word)+'<small class="diff diff-'+c.diff+'">'+diffLabel(c.diff)+'</small></button>';
+      }).join('');
+      row.querySelectorAll('.choice-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){ act({t:'chooseWord', word: btn.getAttribute('data-word')}); });
+      });
+    }
+    if(iAmDrawer && game.subPhase==='drawing'){
+      var sw = document.getElementById('swatches');
+      sw.querySelectorAll('.swatch').forEach(function(b){
+        if(b.getAttribute('data-color')===drawState.color) b.classList.add('active');
+        b.addEventListener('click', function(){
+          drawState.color = b.getAttribute('data-color');
+          sw.querySelectorAll('.swatch').forEach(function(x){x.classList.remove('active');});
+          b.classList.add('active');
+        });
+      });
+      var sz = document.getElementById('sizes');
+      sz.querySelectorAll('.size-btn').forEach(function(b){
+        if(parseInt(b.getAttribute('data-size'),10)===drawState.size) b.classList.add('active');
+        b.addEventListener('click', function(){
+          drawState.size = parseInt(b.getAttribute('data-size'),10);
+          sz.querySelectorAll('.size-btn').forEach(function(x){x.classList.remove('active');});
+          b.classList.add('active');
+        });
+      });
+      document.getElementById('clearBtn').addEventListener('click', function(){
+        clearCanvasLocal();
+        act({t:'clearCanvas'});
+      });
+    }
+    wireChatSidebarOnce();
+  }
+  function updatePlayingDynamic(){
+    var bar = document.getElementById('timebar');
+    if(bar){
+      var elapsed=0, total=1;
+      if(game.subPhase==='choosing'){ total=CHOOSE_SECONDS*1000; elapsed=Date.now()-(game.chooseStartAt||Date.now()); }
+      else if(game.subPhase==='drawing'){ total=game.settings.turnSeconds*1000; elapsed=Date.now()-(game.turnStartAt||Date.now()); }
+      else if(game.subPhase==='reveal'){ total=REVEAL_SECONDS*1000; elapsed=Date.now()-(game.revealAt||Date.now()); }
+      var frac = Math.max(0, Math.min(1, 1 - elapsed/total));
+      bar.style.width = (frac*100)+'%';
+      bar.classList.toggle('urgent', frac<0.25);
+    }
+    var standings = document.getElementById('standings');
+    if(standings){
+      var sorted = game.players.slice().sort(function(a,b){return b.score-a.score;});
+      standings.innerHTML = sorted.map(function(p,i){
+        var isDrawer = p.id===currentDrawerId();
+        return '<div class="standing'+(p.id===myId?' me':'')+'"><span class="rank">'+(i+1)+'.</span>'+(isDrawer?'✏️ ':'')+esc(p.name)+(p.connected===false?' (끊김)':'')+'<span class="pts">'+p.score+'점</span></div>';
+      }).join('');
+    }
+  }
+
+  // ---------- ENDED ----------
+  function buildEndedShell(){
+    var winners = game.winners || [];
+    app.innerHTML = titleBarHTML() +
+      '<div class="card winner">' +
+        (winners[0] ? '<div class="big">🏆 '+esc(winners[0].name)+'님 우승!</div>' : '<div class="big">게임 종료</div>') +
+        '<div class="sub" id="finalList"></div>' +
+      '</div>' +
+      (isHost ? '<div class="card"><button class="primary" id="againBtn">다시 하기</button></div>' : '<div class="card"><div class="hint">방장이 다시 하기를 누르면 새 게임이 시작돼요</div></div>');
+    var list = document.getElementById('finalList');
+    list.innerHTML = winners.map(function(p,i){ return (i+1)+'위 &middot; '+esc(p.name)+' &middot; '+p.score+'점'; }).join('<br>');
+    if(isHost){
+      document.getElementById('againBtn').addEventListener('click', function(){ act({t:'playAgain'}); });
+    }
+    wireChatSidebarOnce();
+  }
+  function updateEndedDynamic(){}
+
+  render();
+  setInterval(function(){ if(game && game.phase==='playing') updatePlayingDynamic(); }, 300);
+})();
+</script>
+</body>
+</html>
